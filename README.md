@@ -101,6 +101,10 @@ npm test        # testy e2e na tymczasowym HOME z atrapą `claude`
 npm run check
 ```
 
+Każdy push i PR przechodzi testy w GitHub Actions. Nowe wersje publikuje automatycznie workflow **Release**
+(npm Trusted Publishing): `npm version patch|minor|major && git push --follow-tags` albo
+Actions → Release → Run workflow.
+
 ## Źródła
 
 - [Manage Multiple Claude Code Accounts](https://gist.github.com/KMJ-007/0979814968722051620461ab2aa01bf2) (KMJ-007) — model „osobny `CLAUDE_CONFIG_DIR` na konto”.

@@ -1,0 +1,92 @@
+name: Release
+
+# Publikacja w npm przez Trusted Publishing (OIDC) — bez tokenów npm w sekretach repozytorium.
+# Na npmjs.com (claudea → Settings → Trusted Publisher) zarejestrowany jest dokładnie ten plik: release.yml.
+# Zmiana nazwy pliku = trzeba utworzyć nowe połączenie po stronie npm.
+#
+# Dwa sposoby wydania:
+#   1. lokalnie `npm version patch|minor|major` + `git push --follow-tags` → push tagu uruchamia publikację,
+#   2. GitHub → Actions → Release → Run workflow (wybór patch/minor/major) → workflow sam podbija wersję,
+#      publikuje, wypycha commit i tag. `dry_run` sprawdza wszystko bez publikacji.
+
+on:
+  push:
+    tags: ['v*.*.*']
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Którą część wersji podbić
+        type: choice
+        options: [patch, minor, major]
+        default: patch
+      dry_run:
+        description: Próba bez publikacji (npm publish --dry-run, bez pushu i bez GitHub Release)
+        type: boolean
+        default: false
+
+permissions:
+  contents: write # commit i tag wydania (uruchomienie ręczne) oraz GitHub Release
+  id-token: write # OIDC dla npm Trusted Publishing
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    # Uruchomienie ręczne tylko z gałęzi main.
+    if: github.event_name == 'push' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+          package-manager-cache: false # wydania budujemy bez cache (zalecenie npm)
+
+      - name: npm z obsługą Trusted Publishing (≥ 11.5.1)
+        run: npm install -g npm@^11.5.1 && npm --version
+
+      - run: npm ci
+      - run: npm run check
+
+      - name: Podbij wersję (uruchomienie ręczne)
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          BUMP: ${{ inputs.bump }}
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          npm version "$BUMP" -m 'Wydanie %s'
+
+      - name: Tag musi odpowiadać wersji w package.json (push tagu)
+        if: github.event_name == 'push'
+        run: |
+          expected="v$(node -p 'require("./package.json").version')"
+          if [ "$expected" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME nie zgadza się z wersją w package.json ($expected)"
+            exit 1
+          fi
+
+      # Najpierw npm, potem push: nieudana publikacja nie zostawia w repozytorium tagu bez paczki.
+      - name: Publikacja w npm
+        env:
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          if [ "$DRY_RUN" = "true" ]; then
+            npm publish --dry-run
+          else
+            npm publish --access public
+          fi
+
+      - name: Wypchnij commit i tag wydania (uruchomienie ręczne)
+        if: github.event_name == 'workflow_dispatch' && !inputs.dry_run
+        run: git push --atomic origin HEAD:main "v$(node -p 'require("./package.json").version')"
+
+      - name: GitHub Release
+        if: ${{ !inputs.dry_run }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "v$(node -p 'require("./package.json").version')" --generate-notes --verify-tag

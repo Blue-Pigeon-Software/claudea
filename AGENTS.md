@@ -49,6 +49,7 @@ node bin/claudea.js list
 ## Struktura
 
 ```
+.github/workflows/    ci.yml (testy), release.yml (publikacja w npm przez OIDC)
 bin/claudea.js        punkt wejścia (shebang) → src/cli.js main()
 src/cli.js            parsowanie argumentów (node:util parseArgs), dispatch poleceń, tekst pomocy
 src/interactive.js    menu (ładowane leniwie — tylko gdy TTY i brak polecenia): konta na górze, akcje pod separatorem
@@ -135,21 +136,37 @@ Tylko testy: `FAKE_CLAUDE_LOG`, `FAKE_CLAUDE_EXIT`.
 4. Testy e2e w `test/` (sandbox + atrapa claude), `npm run check` na zielono.
 5. Zaktualizuj `README.md` i ten plik (struktura, dane, wiedza o Claude Code, dziennik decyzji).
 
-## Wydanie nowej wersji (npm)
+## Wydanie nowej wersji (npm) — automatycznie przez GitHub Actions
 
 Pakiet: [`claudea`](https://www.npmjs.com/package/claudea), maintainer `ardecht`; repo: `Blue-Pigeon-Software/claudea` (gałąź `main`).
 
-1. `npm run check` na zielono, zmiany zacommitowane.
-2. `npm version patch|minor|major` — podbija wersję w `package.json`/`package-lock.json`, robi commit i tag `vX.Y.Z`.
-3. `git push --follow-tags`.
-4. `npm publish` — konto ma 2FA kluczem bezpieczeństwa: npm wypisze link `https://www.npmjs.com/auth/cli/…`,
-   który właściciel musi potwierdzić w przeglądarce (agent nie potwierdza 2FA). Bez TTY npm kończy się `EOTP`
-   — agent musi uruchomić publikację w pseudo-terminalu (np. Python `pty`) albo poprosić właściciela o `! npm publish`.
-   Sukces to linia `+ claudea@X.Y.Z` — w pty npm potem **nie kończy procesu sam** (wisi na prompcie „Press ENTER”),
-   więc skrypt musi go zakończyć; szukaj tego tekstu w wyjściu oczyszczonym z kodów ANSI, nie w surowych bajtach.
-5. Po publikacji npm przez kilka minut przetwarza paczkę („Your package is being processed”) — rejestr i strona
-   npmjs.com pokazują wtedy starą wersję. Sprawdzaj `npm view claudea dist-tags --prefer-online`.
-   Wersja `0.0.0-stage` to placeholder, który npm utworzył przy pierwszej publikacji nowego pakietu (staged publishing).
+Publikuje workflow `.github/workflows/release.yml` przez **npm Trusted Publishing (OIDC)** — bez tokenów npm
+w sekretach i bez 2FA przy każdym wydaniu. Połączenie po stronie npm (claudea → Settings → Trusted Publisher):
+GitHub Actions, `Blue-Pigeon-Software` / `claudea` / workflow `release.yml`, bez environmentu, dozwolone `npm publish`.
+Wszystkie pola są case-sensitive; **zmiana nazwy pliku workflowu albo repo wymaga nowego połączenia w npm**.
+
+Sposoby wydania:
+1. Lokalnie: `npm run check` → `npm version patch|minor|major` (commit + tag `vX.Y.Z`) → `git push --follow-tags`.
+   Push tagu uruchamia `release.yml`: testy, kontrola tag == wersja w `package.json`, `npm publish`, GitHub Release.
+2. Z GitHuba: Actions → **Release** → Run workflow (gałąź `main`, wybór `patch|minor|major`). Workflow podbija wersję,
+   publikuje w npm, a dopiero potem wypycha commit „Wydanie X.Y.Z” i tag (atomowo) oraz tworzy GitHub Release.
+   Opcja `dry_run` robi wszystko poza publikacją, pushem i Release (`npm publish --dry-run`).
+   Commity/tagi wypchnięte przez `GITHUB_TOKEN` nie uruchamiają ponownie workflowów — nie ma podwójnej publikacji.
+
+`ci.yml` uruchamia `npm run check` przy każdym pushu na `main` i w PR (Ubuntu + macOS, Node 22 + 24).
+
+Wymagania Trusted Publishing: npm CLI ≥ 11.5.1 (workflow sam aktualizuje npm), `permissions: id-token: write`,
+runner hostowany przez GitHub, `repository.url` w `package.json` = to repo. Provenance generuje się automatycznie
+(publiczne repo + publiczny pakiet). Błąd `E404`/`ENEEDAUTH` przy publikacji = niezgodna konfiguracja połączenia.
+
+Po publikacji npm przez kilka minut przetwarza paczkę — rejestr i npmjs.com pokazują wtedy starą wersję.
+Sprawdzaj `npm view claudea dist-tags --prefer-online`. Wersja `0.0.0-stage` to placeholder z pierwszej publikacji
+nowego pakietu (staged publishing).
+
+Awaryjnie (ręcznie z komputera właściciela): `npm publish` wymaga 2FA kluczem bezpieczeństwa potwierdzanego
+w przeglądarce (agent nie potwierdza 2FA). Bez TTY npm kończy się `EOTP` — uruchom w pseudo-terminalu (Python `pty`)
+albo poproś właściciela o `! npm publish`. Sukces to linia `+ claudea@X.Y.Z`; w pty npm potem nie kończy procesu
+sam, więc skrypt musi go zakończyć (szukaj tekstu w wyjściu oczyszczonym z kodów ANSI).
 
 Paczka zawiera tylko `bin/`, `src/`, `README.md`, `LICENSE` (pole `files`) — sprawdzaj `npm pack --dry-run`.
 
@@ -166,6 +183,7 @@ Paczka zawiera tylko `bin/`, `src/`, `README.md`, `LICENSE` (pole `files`) — s
 - 2026-10-30 — Stan logowania i (wy)logowanie wyłącznie przez `claude auth …`, nie przez bezpośrednie operacje na Keychain.
 - 2026-10-30 — Repozytorium publiczne `Blue-Pigeon-Software/claudea`, licencja MIT, pakiet npm `claudea` (0.1.0).
 - 2026-10-30 — Wydanie 1.0.0 (tag `v1.0.0`, `latest` w npm).
+- 2026-10-30 — Automatyzacja: CI (`ci.yml`) i wydania przez GitHub Actions + npm Trusted Publishing (`release.yml`).
 
 ## Pomysły na później
 
