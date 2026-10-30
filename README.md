@@ -1,5 +1,7 @@
 # claudea
 
+[![npm](https://img.shields.io/npm/v/claudea)](https://www.npmjs.com/package/claudea)
+
 Interaktywny menedżer wielu kont Claude Code na jednym komputerze.
 
 Każde konto jest **całkowicie niezależne**: dostaje własny katalog konfiguracyjny
@@ -11,13 +13,26 @@ Kilka kont może działać jednocześnie w różnych kartach terminala.
 
 Wymagania: Node.js ≥ 22.13, zainstalowany Claude Code (`claude` w `PATH`), macOS lub Linux.
 
+### Z npm (zalecane)
+
 ```bash
-git clone <repo> claudea && cd claudea
+npm install -g claudea
+claudea
+```
+
+- aktualizacja: `npm install -g claudea@latest`
+- odinstalowanie: `npm uninstall -g claudea` (konta w `~/.claudea` zostają na dysku)
+- bez instalacji: `npx claudea`
+
+### Z kodu źródłowego
+
+```bash
+git clone https://github.com/Blue-Pigeon-Software/claudea.git && cd claudea
 npm install
 node bin/claudea.js        # albo: npm start
 ```
 
-Opcjonalnie `npm link` udostępnia polecenie `claudea` w całym systemie (cofnięcie: `npm unlink -g claudea`).
+Opcjonalnie `npm link` udostępnia wersję z repozytorium jako polecenie `claudea` (cofnięcie: `npm unlink -g claudea`).
 
 ## Użycie
 

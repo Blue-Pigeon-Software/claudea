@@ -135,6 +135,21 @@ Tylko testy: `FAKE_CLAUDE_LOG`, `FAKE_CLAUDE_EXIT`.
 4. Testy e2e w `test/` (sandbox + atrapa claude), `npm run check` na zielono.
 5. Zaktualizuj `README.md` i ten plik (struktura, dane, wiedza o Claude Code, dziennik decyzji).
 
+## Wydanie nowej wersji (npm)
+
+Pakiet: [`claudea`](https://www.npmjs.com/package/claudea), maintainer `ardecht`; repo: `Blue-Pigeon-Software/claudea` (gałąź `main`).
+
+1. `npm run check` na zielono, zmiany zacommitowane.
+2. `npm version patch|minor|major` — podbija wersję w `package.json`/`package-lock.json`, robi commit i tag `vX.Y.Z`.
+3. `git push --follow-tags`.
+4. `npm publish` — konto ma 2FA kluczem bezpieczeństwa: npm wypisze link `https://www.npmjs.com/auth/cli/…`,
+   który właściciel musi potwierdzić w przeglądarce (agent nie potwierdza 2FA). Bez TTY npm kończy się `EOTP`
+   — agent musi uruchomić publikację w pseudo-terminalu (np. Python `pty`) albo poprosić właściciela o `! npm publish`.
+5. Nowe wersje przechodzą automatyczną weryfikację npm („staged release”): do jej końca rejestr pokazuje
+   wersję zastępczą `0.0.0-stage`. Sprawdzaj `npm view claudea dist-tags`.
+
+Paczka zawiera tylko `bin/`, `src/`, `README.md`, `LICENSE` (pole `files`) — sprawdzaj `npm pack --dry-run`.
+
 ## Dziennik decyzji
 
 - 2026-10-30 — Projekt utworzony. Konta w `~/.claudea/<nazwa>`, rejestr w `~/.claudea/config.json`.
@@ -146,6 +161,7 @@ Tylko testy: `FAKE_CLAUDE_LOG`, `FAKE_CLAUDE_EXIT`.
 - 2026-10-30 — Usunięta integracja z powłoką (`shell install/uninstall`, `shell-init`, `env`, funkcje
   `claude-<konto>`/`claudea-use`). Zawsze uruchamiamy `claudea` i wybieramy konto w menu.
 - 2026-10-30 — Stan logowania i (wy)logowanie wyłącznie przez `claude auth …`, nie przez bezpośrednie operacje na Keychain.
+- 2026-10-30 — Repozytorium publiczne `Blue-Pigeon-Software/claudea`, licencja MIT, pakiet npm `claudea` (0.1.0).
 
 ## Pomysły na później
 
