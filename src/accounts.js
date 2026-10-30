@@ -8,7 +8,7 @@ import { isDirectory, isSymlink } from './fsutil.js';
 // Nazwy poleceń są zarezerwowane, bo `claudea <nazwa>` uruchamia konto.
 const RESERVED = new Set([
   'add', 'remove', 'rm', 'rename', 'order', 'list', 'ls', 'run', 'use', 'login', 'logout',
-  'import', 'help', 'version', 'ui',
+  'import', 'shell', 'help', 'version', 'ui',
 ]);
 const NAME_RE = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,39}$/;
 

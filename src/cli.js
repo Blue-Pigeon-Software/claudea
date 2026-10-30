@@ -16,6 +16,7 @@ import {
 } from './accounts.js';
 import { authLogin, authLogout, authStatus, runClaude, statusAll } from './claude.js';
 import { accountLines } from './format.js';
+import { disableShellIntegration, enableShellIntegration, shellStatus } from './shell.js';
 
 const VERSION = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version;
 
@@ -48,6 +49,11 @@ ${c.bold('Praca z kontem:')}
   run, use <konto> [--] [arg.]     uruchom claude z CLAUDE_CONFIG_DIR konta
   login <konto>                    zaloguj (--email <e-mail>, --sso, --console)
   logout <konto>                   wyloguj (usuwa poświadczenia, np. z Keychain)
+
+${c.bold('Powłoka:')}
+  shell [status]                   czy polecenie \`claudea\` uruchamia \`npx claudea\`
+  shell on                         włącz (alias w pliku startowym powłoki: zsh, bash, fish)
+  shell off                        wyłącz (usuwa tylko blok dopisany przez claudea)
 
 ${c.bold('Pliki:')} ~/.claudea/config.json (rejestr), ~/.claudea/<konto> (katalogi kont)
 `;
@@ -250,6 +256,40 @@ async function cmdImport(args) {
   return 0;
 }
 
+async function cmdShell(args) {
+  const { positionals } = parse(args);
+  const [action = 'status'] = positionals;
+
+  if (action === 'status') {
+    const { shell, file, enabled } = shellStatus();
+    if (!file) info(`Integracja z powłoką: nieobsługiwana powłoka (${shell ?? 'brak $SHELL'}).`);
+    else if (enabled) info(`Integracja z powłoką: włączona (${tildify(file)}) — \`claudea\` uruchamia \`npx claudea\`.`);
+    else info('Integracja z powłoką: wyłączona. Włącz: `claudea shell on`.');
+    return 0;
+  }
+  if (action === 'on') {
+    const { changed, file, hint } = enableShellIntegration();
+    if (!changed) {
+      info(`Integracja z powłoką jest już włączona (${tildify(file)}).`);
+      return 0;
+    }
+    ok(`Włączono: \`claudea\` uruchamia teraz \`npx claudea\` (${tildify(file)}).`);
+    info(hint);
+    return 0;
+  }
+  if (action === 'off') {
+    const { files, hint } = disableShellIntegration();
+    if (files.length === 0) {
+      info('Integracja z powłoką jest już wyłączona.');
+      return 0;
+    }
+    ok(`Wyłączono integrację z powłoką (${files.map(tildify).join(', ')}).`);
+    info(hint);
+    return 0;
+  }
+  throw new CliError('Użycie: claudea shell [status|on|off]');
+}
+
 // ── Dispatch ──
 
 const COMMANDS = {
@@ -265,6 +305,7 @@ const COMMANDS = {
   login: cmdLogin,
   logout: cmdLogout,
   import: cmdImport,
+  shell: cmdShell,
 };
 
 async function dispatch(argv) {

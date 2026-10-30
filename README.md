@@ -49,6 +49,7 @@ Uruchamiasz `claudea`. Na górze jest lista kont, a pod nią pozostałe opcje:
 │  ○ Zmień kolejność kont
 │  ○ Zmień nazwę konta
 │  ○ Usuń konto
+│  ○ Włącz integrację z powłoką
 │  ○ Wyjście
 │  ↑/↓ wybór • Enter: zatwierdź • Esc: wyjdź
 ```
@@ -74,7 +75,26 @@ To samo bez menu (np. do skryptów):
 | `claudea login <konto> [--email <e>] [--sso] [--console]` | `claude auth login` na koncie |
 | `claudea logout <konto>` | `claude auth logout` na koncie |
 
-claudea nie modyfikuje plików startowych powłoki (`~/.zshrc` itp.) — nie tworzy aliasów ani funkcji.
+| `claudea shell [status\|on\|off]` | integracja z powłoką (zob. niżej) |
+
+## Integracja z powłoką (opcjonalna)
+
+Jeśli używasz `npx claudea` zamiast instalacji globalnej, możesz włączyć krótsze polecenie: po wpisaniu `claudea`
+uruchomi się `npx claudea`. Włączasz i wyłączasz to w menu („Włącz/Wyłącz integrację z powłoką”) albo przez
+`claudea shell on` / `claudea shell off`.
+
+Domyślnie integracja jest wyłączona i claudea nie zmienia wtedy plików startowych powłoki. Po włączeniu dopisuje
+do pliku startowego bieżącej powłoki (`$SHELL`: zsh → `~/.zshrc`, bash → `~/.bash_profile` na macOS i `~/.bashrc`
+na Linuksie, fish → `~/.config/fish/config.fish`) oznaczony blok, a przy wyłączaniu usuwa tylko ten blok:
+
+```bash
+# >>> claudea >>>
+alias claudea='npx claudea'
+# <<< claudea <<<
+```
+
+Zmiana obowiązuje w nowych terminalach; w otwartych wykonaj polecenie, które podpowie claudea. `npx` wybiera wersję
+z bieżącego projektu albo ze swojej pamięci podręcznej, więc alias nie musi uruchamiać najnowszego wydania.
 
 ## Import istniejących kont
 

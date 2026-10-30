@@ -15,9 +15,12 @@ CLI w Node.js (`claudea`) — interaktywny menedżer wielu kont Claude Code na j
   „niezależność od ~/.claude” w `test/accounts.test.js` pilnuje tego automatycznie.
 - `claude` zawsze dostaje `CLAUDE_CONFIG_DIR` konta (nadpisuje wartość odziedziczoną z powłoki).
 - **Jedynym punktem wejścia jest `claudea`** — użytkownik uruchamia menu i tam wybiera konto.
-  Nie ma integracji z powłoką: claudea nie modyfikuje `~/.zshrc`/`~/.bashrc`/fish, nie generuje aliasów
-  ani funkcji (`claude-<konto>`), nie ma poleceń `shell`, `shell-init`, `env` (usunięte na prośbę właściciela).
-  Nie dodawaj tego z powrotem bez wyraźnej prośby.
+  Nie ma aliasów ani funkcji per konto (`claude-<konto>`) ani poleceń `shell-init`, `env` (usunięte na prośbę
+  właściciela). Nie dodawaj tego z powrotem bez wyraźnej prośby.
+- Jedyna integracja z powłoką to opcjonalny, domyślnie wyłączony alias `claudea` → `npx claudea`
+  (`claudea shell on|off`, pozycja w menu, `src/shell.js`). Bez jawnego włączenia claudea nie modyfikuje plików startowych
+  powłoki; przy wyłączaniu usuwa tylko własny blok między znacznikami `# >>> claudea >>>` i `# <<< claudea <<<`.
+  Plik startowy może być symlinkiem (dotfiles) — zapis trafia do jego celu, a symlink zostaje.
 
 Źródła pomysłu:
 - gist KMJ-007 „Manage Multiple Claude Code Accounts” — osobny `CLAUDE_CONFIG_DIR` na konto (to jest nasz model;
@@ -56,6 +59,7 @@ src/interactive.js    menu (ładowane leniwie — tylko gdy TTY i brak polecenia
 src/ui.js             własne prompty na @clack/core: menuSelect (separatory, polska stopka), sortList (zmiana kolejności)
 src/accounts.js       rejestr kont: walidacja nazw, create/remove/rename/reorder/import, kandydaci do importu
 src/claude.js         uruchamianie `claude` (spawn, stdio: inherit), `claude auth status|login|logout`
+src/shell.js          opcjonalny alias claudea → npx claudea w pliku startowym powłoki (zsh, bash, fish)
 src/config.js         odczyt/zapis rejestru ~/.claudea/config.json
 src/paths.js          wszystkie ścieżki (leniwie z $HOME), normalizeDir, tildify, isInside
 src/format.js         tabela kont i opis stanu logowania
@@ -124,7 +128,8 @@ Tylko testy: `FAKE_CLAUDE_LOG`, `FAKE_CLAUDE_EXIT`.
 - Każdy test e2e tworzy `sandbox()`: tymczasowy HOME z przykładowym `~/.claude` (żeby sprawdzać, że jest nietknięty),
   czyste env (bez `CLAUDE_CONFIG_DIR`/`ZDOTDIR` użytkownika), atrapę claude. `sb.calls()` zwraca wywołania atrapy
   (`args`, `configDir`), `sb.config()` — rejestr.
-- Testy pilnują też, że claudea nie tworzy/nie zmienia plików startowych powłoki ani niczego w `~/.claude`.
+- Testy pilnują też, że bez `shell on` claudea nie tworzy/nie zmienia plików startowych powłoki oraz że nie zmienia niczego w `~/.claude`.
+  Testy `shell` podają `SHELL` przez `env`, bo sandbox go nie dziedziczy.
 - Tryb interaktywny nie ma testów automatycznych. Ręcznie: pseudo-terminal (np. Python `pty.fork()`);
   **koniecznie ustaw rozmiar okna** (`TIOCSWINSZ`), inaczej clack renderuje po jednym znaku w linii.
 
@@ -189,6 +194,8 @@ Paczka zawiera tylko `bin/`, `src/`, `README.md`, `LICENSE` (pole `files`) — s
 - 2026-10-30 — Automatyzacja: CI (`ci.yml`) i wydania przez GitHub Actions + npm Trusted Publishing (`release.yml`),
   pełna automatyka (dozwolone `npm publish`, bez ręcznego zatwierdzania). Pierwsze wydanie z CI: 1.0.1.
   Publikacja tokenami zablokowana w ustawieniach pakietu.
+- 2026-10-30 — Na prośbę właściciela wraca wąska integracja z powłoką: przełączany alias `claudea` → `npx claudea`
+  (menu, `claudea shell on|off`), domyślnie wyłączony. Aliasy per konto i `shell-init`/`env` nadal odrzucone.
 
 ## Pomysły na później
 

@@ -27,12 +27,16 @@ export function readJson(p) {
 }
 
 /** Zapis przez plik tymczasowy + rename, z zachowaniem uprawnień istniejącego pliku. */
-export function writeJsonAtomic(p, data, { defaultMode = 0o600 } = {}) {
+export function writeTextAtomic(p, text, { defaultMode = 0o600 } = {}) {
   let mode = defaultMode;
   try {
     mode = statSync(p).mode & 0o777;
   } catch { /* nowy plik */ }
   const tmp = `${p}.claudea-${process.pid}.tmp`;
-  writeFileSync(tmp, `${JSON.stringify(data, null, 2)}\n`, { mode });
+  writeFileSync(tmp, text, { mode });
   renameSync(tmp, p);
+}
+
+export function writeJsonAtomic(p, data, options) {
+  writeTextAtomic(p, `${JSON.stringify(data, null, 2)}\n`, options);
 }

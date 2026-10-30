@@ -16,6 +16,7 @@ import {
 } from './accounts.js';
 import { authLogin, authLogout, runClaude, statusAll } from './claude.js';
 import { statusSummary, statusText } from './format.js';
+import { disableShellIntegration, enableShellIntegration, shellStatus } from './shell.js';
 import { menuSelect, sortList, usePolishMessages } from './ui.js';
 
 /** Ctrl+C / Esc w podmenu — wracamy do menu głównego. */
@@ -43,6 +44,7 @@ async function loadState() {
     statusOf: (account) => statuses[accounts.indexOf(account)],
     active: activeAccount(accounts),
     candidates: findImportCandidates(config),
+    shell: shellStatus(),
   };
 }
 
@@ -219,6 +221,18 @@ const ACTIONS = {
       p.log.success(`Zaimportowano ${c.bold(account.name)}.`);
     }
   },
+
+  async shell(state) {
+    if (state.shell.enabled) {
+      const { files, hint } = disableShellIntegration();
+      p.log.success(`Wyłączono integrację z powłoką (${files.map(tildify).join(', ')}).`);
+      p.log.info(c.dim(hint));
+      return;
+    }
+    const { file, hint } = enableShellIntegration();
+    p.log.success(`Włączono: \`claudea\` uruchamia teraz \`npx claudea\` (${tildify(file)}).`);
+    p.log.info(c.dim(hint));
+  },
 };
 
 /** Menu główne: najpierw konta (wybór = uruchomienie), pod separatorem akcje. */
@@ -234,6 +248,13 @@ function mainOptions(state) {
   if (state.statuses.some((s) => s.loggedIn !== false)) options.push({ value: 'logout', label: 'Wyloguj konto' });
   if (state.accounts.length > 1) options.push({ value: 'order', label: 'Zmień kolejność kont' });
   if (hasAccounts) options.push({ value: 'rename', label: 'Zmień nazwę konta' }, { value: 'remove', label: 'Usuń konto' });
+  if (state.shell.file) {
+    options.push(
+      state.shell.enabled
+        ? { value: 'shell', label: 'Wyłącz integrację z powłoką', hint: tildify(state.shell.file) }
+        : { value: 'shell', label: 'Włącz integrację z powłoką', hint: 'polecenie claudea uruchomi npx claudea' },
+    );
+  }
   options.push({ value: 'exit', label: 'Wyjście' });
   return options;
 }

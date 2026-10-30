@@ -336,13 +336,13 @@ describe('CLI', () => {
     assert.match(r.stdout, /menedżer niezależnych kont Claude Code/);
   });
 
-  test('usunięte polecenia (współdzielenie, integracja z powłoką) są nieznane', () => {
-    for (const command of ['sync', 'share', 'shell', 'shell-init', 'env']) {
+  test('usunięte polecenia (współdzielenie, generowanie funkcji powłoki) są nieznane', () => {
+    for (const command of ['sync', 'share', 'shell-init', 'env']) {
       assert.equal(sb.run([command]).code, 1, command);
     }
   });
 
-  test('nie dotyka plików startowych powłoki', () => {
+  test('bez `shell on` nie dotyka plików startowych powłoki', () => {
     sb.run(['add', 'konto']);
     sb.run(['run', 'konto']);
     assert.ok(!existsSync(join(sb.home, '.zshrc')));

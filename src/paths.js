@@ -23,6 +23,13 @@ export const defaultAccountsDir = () => claudeaHome();
 /** Dodatkowe miejsca skanowane przy imporcie (ręczny układ sprzed claudea). */
 export const legacyAccountsDirs = () => [join(home(), '.claude-accounts')];
 
+/** Pliki startowe powłok, do których `claudea shell on` dopisuje alias. */
+export const shellRcFiles = () => ({
+  zsh: join(process.env.ZDOTDIR || home(), '.zshrc'),
+  bash: join(home(), process.platform === 'darwin' ? '.bash_profile' : '.bashrc'),
+  fish: join(process.env.XDG_CONFIG_HOME || join(home(), '.config'), 'fish', 'config.fish'),
+});
+
 export function expandHome(p) {
   if (p === '~') return home();
   if (p.startsWith('~/')) return join(home(), p.slice(2));
