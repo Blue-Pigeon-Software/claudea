@@ -144,6 +144,9 @@ Publikuje workflow `.github/workflows/release.yml` przez **npm Trusted Publishin
 w sekretach i bez 2FA przy każdym wydaniu. Połączenie po stronie npm (claudea → Settings → Trusted Publisher):
 GitHub Actions, `Blue-Pigeon-Software` / `claudea` / workflow `release.yml`, bez environmentu, dozwolone `npm publish`.
 Wszystkie pola są case-sensitive; **zmiana nazwy pliku workflowu albo repo wymaga nowego połączenia w npm**.
+„Publishing access” pakietu: **Require two-factor authentication and disallow bypass 2fa tokens** — publikacja
+klasycznymi/granularnymi tokenami jest zablokowana; działa tylko Trusted Publishing z CI albo ręczna publikacja z 2FA.
+Nie dodawaj tokenów npm do sekretów repozytorium — i tak nie zadziałają.
 
 Sposoby wydania:
 1. Lokalnie: `npm run check` → `npm version patch|minor|major` (commit + tag `vX.Y.Z`) → `git push --follow-tags`.
@@ -183,7 +186,9 @@ Paczka zawiera tylko `bin/`, `src/`, `README.md`, `LICENSE` (pole `files`) — s
 - 2026-10-30 — Stan logowania i (wy)logowanie wyłącznie przez `claude auth …`, nie przez bezpośrednie operacje na Keychain.
 - 2026-10-30 — Repozytorium publiczne `Blue-Pigeon-Software/claudea`, licencja MIT, pakiet npm `claudea` (0.1.0).
 - 2026-10-30 — Wydanie 1.0.0 (tag `v1.0.0`, `latest` w npm).
-- 2026-10-30 — Automatyzacja: CI (`ci.yml`) i wydania przez GitHub Actions + npm Trusted Publishing (`release.yml`).
+- 2026-10-30 — Automatyzacja: CI (`ci.yml`) i wydania przez GitHub Actions + npm Trusted Publishing (`release.yml`),
+  pełna automatyka (dozwolone `npm publish`, bez ręcznego zatwierdzania). Pierwsze wydanie z CI: 1.0.1.
+  Publikacja tokenami zablokowana w ustawieniach pakietu.
 
 ## Pomysły na później
 
