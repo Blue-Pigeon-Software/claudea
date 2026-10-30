@@ -145,8 +145,11 @@ Pakiet: [`claudea`](https://www.npmjs.com/package/claudea), maintainer `ardecht`
 4. `npm publish` — konto ma 2FA kluczem bezpieczeństwa: npm wypisze link `https://www.npmjs.com/auth/cli/…`,
    który właściciel musi potwierdzić w przeglądarce (agent nie potwierdza 2FA). Bez TTY npm kończy się `EOTP`
    — agent musi uruchomić publikację w pseudo-terminalu (np. Python `pty`) albo poprosić właściciela o `! npm publish`.
-5. Nowe wersje przechodzą automatyczną weryfikację npm („staged release”): do jej końca rejestr pokazuje
-   wersję zastępczą `0.0.0-stage`. Sprawdzaj `npm view claudea dist-tags`.
+   Sukces to linia `+ claudea@X.Y.Z` — w pty npm potem **nie kończy procesu sam** (wisi na prompcie „Press ENTER”),
+   więc skrypt musi go zakończyć; szukaj tego tekstu w wyjściu oczyszczonym z kodów ANSI, nie w surowych bajtach.
+5. Po publikacji npm przez kilka minut przetwarza paczkę („Your package is being processed”) — rejestr i strona
+   npmjs.com pokazują wtedy starą wersję. Sprawdzaj `npm view claudea dist-tags --prefer-online`.
+   Wersja `0.0.0-stage` to placeholder, który npm utworzył przy pierwszej publikacji nowego pakietu (staged publishing).
 
 Paczka zawiera tylko `bin/`, `src/`, `README.md`, `LICENSE` (pole `files`) — sprawdzaj `npm pack --dry-run`.
 
@@ -162,6 +165,7 @@ Paczka zawiera tylko `bin/`, `src/`, `README.md`, `LICENSE` (pole `files`) — s
   `claude-<konto>`/`claudea-use`). Zawsze uruchamiamy `claudea` i wybieramy konto w menu.
 - 2026-10-30 — Stan logowania i (wy)logowanie wyłącznie przez `claude auth …`, nie przez bezpośrednie operacje na Keychain.
 - 2026-10-30 — Repozytorium publiczne `Blue-Pigeon-Software/claudea`, licencja MIT, pakiet npm `claudea` (0.1.0).
+- 2026-10-30 — Wydanie 1.0.0 (tag `v1.0.0`, `latest` w npm).
 
 ## Pomysły na później
 
