@@ -3,7 +3,6 @@
   "version": "0.1.0",
   "description": "Interaktywny menedżer niezależnych kont Claude Code (osobny CLAUDE_CONFIG_DIR na konto)",
   "type": "module",
-  "private": true,
   "bin": {
     "claudea": "bin/claudea.js"
   },
@@ -11,7 +10,7 @@
     "bin",
     "src",
     "README.md",
-    "AGENTS.md"
+    "LICENSE"
   ],
   "scripts": {
     "start": "node bin/claudea.js",
@@ -22,8 +21,20 @@
     "claude",
     "claude-code",
     "multi-account",
-    "cli"
+    "cli",
+    "accounts",
+    "claude-config-dir"
   ],
+  "author": "Jakub Puzia (Blue Pigeon Software)",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Blue-Pigeon-Software/claudea.git"
+  },
+  "homepage": "https://github.com/Blue-Pigeon-Software/claudea#readme",
+  "bugs": {
+    "url": "https://github.com/Blue-Pigeon-Software/claudea/issues"
+  },
   "engines": {
     "node": ">=22.13"
   },
