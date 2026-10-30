@@ -1,0 +1,34 @@
+{
+  "name": "claudea",
+  "version": "0.1.0",
+  "description": "Interaktywny menedżer niezależnych kont Claude Code (osobny CLAUDE_CONFIG_DIR na konto)",
+  "type": "module",
+  "private": true,
+  "bin": {
+    "claudea": "bin/claudea.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "README.md",
+    "AGENTS.md"
+  ],
+  "scripts": {
+    "start": "node bin/claudea.js",
+    "test": "node --test \"test/*.test.js\"",
+    "check": "node --check bin/claudea.js && for f in src/*.js; do node --check \"$f\" || exit 1; done && npm test"
+  },
+  "keywords": [
+    "claude",
+    "claude-code",
+    "multi-account",
+    "cli"
+  ],
+  "engines": {
+    "node": ">=22.13"
+  },
+  "dependencies": {
+    "@clack/core": "1.5.1",
+    "@clack/prompts": "^1.8.1"
+  }
+}
