@@ -1,6 +1,6 @@
 {
   "name": "claudea",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Interaktywny menedżer niezależnych kont Claude Code (osobny CLAUDE_CONFIG_DIR na konto)",
   "type": "module",
   "bin": {
