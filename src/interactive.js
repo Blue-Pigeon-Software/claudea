@@ -17,7 +17,7 @@ import {
 import { authLogin, authLogout, runClaude, statusAll } from './claude.js';
 import { statusSummary, statusText } from './format.js';
 import { disableShellIntegration, enableShellIntegration, shellStatus } from './shell.js';
-import { menuSelect, sortList, usePolishMessages } from './ui.js';
+import { clearScreen, closeScreen, menuSelect, openScreen, printNotice, printTitle, sortList, usePolishMessages } from './ui.js';
 
 /** Ctrl+C / Esc w podmenu — wracamy do menu głównego. */
 class Back extends Error {}
@@ -30,13 +30,40 @@ async function ask(prompt) {
 
 const yesNo = (opts) => p.confirm({ active: 'Tak', inactive: 'Nie', ...opts });
 
+// Każda akcja dostaje czysty ekran, więc wynik pokazujemy dopiero nad kolejnym menu (albo po wyjściu z aplikacji).
+const NOTICE_MARK = { success: c.green(p.S_SUCCESS), warn: c.yellow(p.S_WARN), error: c.red(p.S_ERROR), info: c.cyan(p.S_INFO) };
+let notices = [];
+
+const notify = (kind, text) => notices.push({ mark: NOTICE_MARK[kind], text });
+
+function takeNotices() {
+  const taken = notices;
+  notices = [];
+  return taken;
+}
+
+function showTitle() {
+  clearScreen();
+  printTitle(`${c.bold('claudea')} ${c.dim('— menedżer niezależnych kont Claude Code')}`);
+}
+
+/** Komunikat błędu claude zniknąłby razem z ekranem — czekamy, aż użytkownik go przeczyta. */
+async function pauseAfterFailure(command, code) {
+  const message = `\`${command}\` zakończył się kodem ${code}.`;
+  notify('warn', message);
+  await menuSelect({ message, options: [{ value: 'ok', label: 'Wróć' }] });
+}
+
 async function loadState() {
   const config = loadConfig();
   const accounts = getAccounts(config);
+  showTitle();
   const spin = p.spinner();
   spin.start('Sprawdzam stan kont');
   const statuses = await statusAll(accounts);
   spin.clear();
+  // Spinner zostawia nad sobą pionową linię — rysujemy ekran od nowa.
+  showTitle();
   return {
     config,
     accounts,
@@ -48,13 +75,14 @@ async function loadState() {
   };
 }
 
-/** Pozycje kont: nazwa wyrównana do kolumny + stan logowania; katalog jako podpowiedź. */
+/** Pozycje kont: pogrubiona nazwa wyrównana do kolumny + stan logowania; katalog jako podpowiedź. */
 function accountOptions(state, accounts, valueOf) {
   const nameWidth = Math.max(...accounts.map((a) => a.name.length));
   return accounts.map((a) => ({
     value: valueOf(a),
-    label: `${a.name.padEnd(nameWidth)}  ${statusText(state.statusOf(a))}`,
+    label: `${c.bold(a.name.padEnd(nameWidth))}  ${statusText(state.statusOf(a))}`,
     hint: tildify(a.dir),
+    strong: true,
   }));
 }
 
@@ -74,12 +102,13 @@ async function pickAccount(state, message, filter = () => true) {
 async function loginFlow(account) {
   p.log.step(`Logowanie na konto ${c.bold(account.name)} — dokończ je w przeglądarce.`);
   const code = await authLogin(account);
-  if (code === 0) p.log.success('Zalogowano.');
-  else p.log.warn(`\`claude auth login\` zakończył się kodem ${code}.`);
+  if (code === 0) notify('success', `Zalogowano konto ${c.bold(account.name)}.`);
+  else await pauseAfterFailure('claude auth login', code);
 }
 
 function launch(account) {
-  p.outro(`Uruchamiam claude na koncie ${c.bold(account.name)}`);
+  closeScreen();
+  console.log(c.dim(`Uruchamiam claude na koncie ${account.name}`));
   return runClaude(account, []);
 }
 
@@ -110,8 +139,8 @@ const ACTIONS = {
     );
 
     const account = createAccount(config, { name, dir: dir.trim() });
-    p.log.success(`Utworzono konto ${c.bold(account.name)} w ${tildify(account.dir)}`);
-    if (await ask(yesNo({ message: 'Zalogować się teraz?', initialValue: true }))) await loginFlow(account);
+    notify('success', `Utworzono konto ${c.bold(account.name)} w ${tildify(account.dir)}`);
+    if (await ask(yesNo({ message: `Konto ${account.name} utworzone. Zalogować się teraz?`, initialValue: true }))) await loginFlow(account);
   },
 
   async login(state) {
@@ -130,8 +159,8 @@ const ACTIONS = {
     const account = await pickAccount(state, 'Które konto wylogować?', (s) => s.loggedIn !== false);
     if (!(await ask(yesNo({ message: `Wylogować ${account.name}? Poświadczenia zostaną usunięte.`, initialValue: false })))) return;
     const code = await authLogout(account);
-    if (code === 0) p.log.success(`Wylogowano ${account.name}.`);
-    else p.log.warn(`\`claude auth logout\` zakończył się kodem ${code}.`);
+    if (code === 0) notify('success', `Wylogowano ${c.bold(account.name)}.`);
+    else await pauseAfterFailure('claude auth logout', code);
   },
 
   async order(state) {
@@ -142,7 +171,7 @@ const ACTIONS = {
       }),
     );
     reorderAccounts(state.config, names);
-    p.log.success('Zapisano kolejność kont.');
+    notify('success', 'Zapisano kolejność kont.');
   },
 
   async rename(state) {
@@ -161,7 +190,7 @@ const ACTIONS = {
       )
     ).trim();
     const renamed = renameAccount(state.config, account.name, newName);
-    p.log.success(`Zmieniono nazwę na ${c.bold(renamed.name)} (katalog bez zmian).`);
+    notify('success', `Zmieniono nazwę na ${c.bold(renamed.name)} (katalog bez zmian).`);
   },
 
   async remove(state) {
@@ -189,10 +218,10 @@ const ACTIONS = {
     const status = state.statusOf(account);
     if (deleteFiles && status.loggedIn !== false && !status.missing) {
       const code = await authLogout(account).catch(() => 1);
-      if (code !== 0) p.log.warn('Wylogowanie się nie powiodło — poświadczenia mogły zostać w Keychain.');
+      if (code !== 0) notify('warn', 'Wylogowanie się nie powiodło — poświadczenia mogły zostać w Keychain.');
     }
     removeAccount(state.config, account.name, { deleteFiles });
-    p.log.success(`Usunięto konto ${c.bold(account.name)}.`);
+    notify('success', `Usunięto konto ${c.bold(account.name)}.`);
   },
 
   async import(state) {
@@ -218,45 +247,50 @@ const ACTIONS = {
         )
       ).trim();
       const account = importAccount(state.config, { dir, name });
-      p.log.success(`Zaimportowano ${c.bold(account.name)}.`);
+      notify('success', `Zaimportowano ${c.bold(account.name)}.`);
     }
   },
 
   async shell(state) {
     if (state.shell.enabled) {
       const { files, hint } = disableShellIntegration();
-      p.log.success(`Wyłączono integrację z powłoką (${files.map(tildify).join(', ')}).`);
-      p.log.info(c.dim(hint));
+      notify('success', `Wyłączono integrację z powłoką (${files.map(tildify).join(', ')}).`);
+      notify('info', c.dim(hint));
       return;
     }
     const { file, hint } = enableShellIntegration();
-    p.log.success(`Włączono: \`claudea\` uruchamia teraz \`npx claudea\` (${tildify(file)}).`);
-    p.log.info(c.dim(hint));
+    notify('success', `Włączono: \`claudea\` uruchamia teraz \`npx claudea\` (${tildify(file)}).`);
+    notify('info', c.dim(hint));
   },
 };
 
-/** Menu główne: najpierw konta (wybór = uruchomienie), pod separatorem akcje. */
+/** Menu główne: najpierw konta (wybór = uruchomienie), pod nagłówkiem wyraźnie odróżnione ustawienia. */
 function mainOptions(state) {
   const hasAccounts = state.accounts.length > 0;
-  const options = [];
-  if (hasAccounts) options.push(...accountOptions(state, state.accounts, (a) => `run:${a.name}`), { separator: true });
-  options.push({ value: 'add', label: 'Dodaj konto' });
+  const settings = [];
+  settings.push({ value: 'add', label: 'Dodaj konto' });
   if (state.candidates.length > 0) {
-    options.push({ value: 'import', label: 'Importuj istniejące katalogi', hint: `znaleziono: ${state.candidates.length}` });
+    settings.push({ value: 'import', label: 'Importuj istniejące katalogi', hint: `znaleziono: ${state.candidates.length}` });
   }
-  if (hasAccounts) options.push({ value: 'login', label: 'Zaloguj konto' });
-  if (state.statuses.some((s) => s.loggedIn !== false)) options.push({ value: 'logout', label: 'Wyloguj konto' });
-  if (state.accounts.length > 1) options.push({ value: 'order', label: 'Zmień kolejność kont' });
-  if (hasAccounts) options.push({ value: 'rename', label: 'Zmień nazwę konta' }, { value: 'remove', label: 'Usuń konto' });
+  if (hasAccounts) settings.push({ value: 'login', label: 'Zaloguj konto' });
+  if (state.statuses.some((s) => s.loggedIn !== false)) settings.push({ value: 'logout', label: 'Wyloguj konto' });
+  if (state.accounts.length > 1) settings.push({ value: 'order', label: 'Zmień kolejność kont' });
+  if (hasAccounts) settings.push({ value: 'rename', label: 'Zmień nazwę konta' }, { value: 'remove', label: 'Usuń konto' });
   if (state.shell.file) {
-    options.push(
+    settings.push(
       state.shell.enabled
         ? { value: 'shell', label: 'Wyłącz integrację z powłoką', hint: tildify(state.shell.file) }
         : { value: 'shell', label: 'Włącz integrację z powłoką', hint: 'polecenie claudea uruchomi npx claudea' },
     );
   }
-  options.push({ value: 'exit', label: 'Wyjście' });
-  return options;
+  settings.push({ separator: true }, { value: 'exit', label: 'Wyjście' });
+
+  const accounts = accountOptions(state, state.accounts, (a) => `run:${a.name}`).map((o) => ({ ...o, enterLabel: 'uruchom' }));
+  return [
+    ...accounts,
+    ...(hasAccounts ? [{ separator: true }, { separator: true, label: 'Ustawienia' }] : []),
+    ...settings.map((o) => (o.separator ? o : { ...o, secondary: true })),
+  ];
 }
 
 /** Wykonuje akcję; zwraca kod wyjścia, gdy trzeba zakończyć (np. po uruchomieniu claude). */
@@ -266,43 +300,48 @@ async function perform(action, state) {
     return typeof result === 'number' ? result : undefined;
   } catch (err) {
     if (err instanceof Back) {
-      p.log.info(c.dim('Anulowano.'));
+      notify('info', c.dim('Anulowano.'));
       return undefined;
     }
     if (err instanceof CliError) {
-      p.log.error(err.hint ? `${err.message}\n${c.dim(err.hint)}` : err.message);
+      notify('error', err.hint ? `${err.message}\n${c.dim(err.hint)}` : err.message);
       return undefined;
     }
     throw err;
   }
 }
 
-/** Menu główne. `only` uruchamia pojedynczą akcję (np. `claudea run` bez nazwy konta). */
-export async function interactive({ only } = {}) {
-  usePolishMessages();
-  p.intro(`${c.bold('claudea')} ${c.dim('— menedżer niezależnych kont Claude Code')}`);
-
-  if (only) {
-    const code = await perform(only, await loadState());
-    if (code === undefined) p.outro('Gotowe.');
-    return code ?? 0;
-  }
-
+async function mainLoop() {
   for (;;) {
     const state = await loadState();
+    for (const { mark, text } of takeNotices()) printNotice(mark, text);
     const choice = await menuSelect({
       message: state.accounts.length > 0 ? 'Wybierz konto, aby uruchomić Claude Code' : 'Nie masz jeszcze kont — co robimy?',
       options: mainOptions(state),
       escLabel: 'wyjdź',
     });
-    if (p.isCancel(choice) || choice === 'exit') {
-      p.outro('Do zobaczenia!');
-      return 0;
-    }
+    if (p.isCancel(choice) || choice === 'exit') return 0;
     if (choice.startsWith('run:')) {
-      return launch(state.accounts.find((a) => `run:${a.name}` === choice));
+      return await launch(state.accounts.find((a) => `run:${a.name}` === choice));
     }
+    showTitle();
     const code = await perform(choice, state);
     if (code !== undefined) return code;
+  }
+}
+
+/** Aplikacja pełnoekranowa. `only` uruchamia pojedynczą akcję (np. `claudea run` bez nazwy konta). */
+export async function interactive({ only } = {}) {
+  usePolishMessages();
+  openScreen();
+  try {
+    if (only) {
+      return (await perform(only, await loadState())) ?? 0;
+    }
+    return await mainLoop();
+  } finally {
+    closeScreen();
+    // Wynik pojedynczej akcji ma zostać w terminalu — ekran aplikacji właśnie zniknął.
+    for (const { mark, text } of takeNotices()) console.log(`${mark}  ${text.replaceAll('\n', '\n   ')}`);
   }
 }

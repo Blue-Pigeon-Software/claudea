@@ -36,25 +36,31 @@ Opcjonalnie `npm link` udostępnia wersję z repozytorium jako polecenie `claude
 
 ## Użycie
 
-Uruchamiasz `claudea`. Na górze jest lista kont, a pod nią pozostałe opcje:
+Uruchamiasz `claudea`. Menu działa na osobnym ekranie terminala, jak aplikacja: po wyjściu terminal wygląda
+tak jak przed uruchomieniem i nic nie zostaje w historii. Na górze jest lista kont, a pod nią, w osobnej sekcji, ustawienia:
 
 ```
+┌  claudea — menedżer niezależnych kont Claude Code
+│
 ◆  Wybierz konto, aby uruchomić Claude Code
 │  ● praca      jan@firma.pl · Firma · max (~/.claudea/praca)
 │  ○ prywatne   niezalogowane
-│  ────────────────────────
-│  ○ Dodaj konto
-│  ○ Zaloguj konto
-│  ○ Wyloguj konto
-│  ○ Zmień kolejność kont
-│  ○ Zmień nazwę konta
-│  ○ Usuń konto
-│  ○ Włącz integrację z powłoką
-│  ○ Wyjście
-│  ↑/↓ wybór • Enter: zatwierdź • Esc: wyjdź
+│
+│  ── Ustawienia ──────────────────────
+│  › Dodaj konto
+│  › Zaloguj konto
+│  › Wyloguj konto
+│  › Zmień kolejność kont
+│  › Zmień nazwę konta
+│  › Usuń konto
+│  › Włącz integrację z powłoką
+│
+│  › Wyjście
+│  ↑/↓ wybór • Enter: uruchom • Esc: wyjdź
+└
 ```
 
-Enter na koncie startuje `claude` z `CLAUDE_CONFIG_DIR` tego konta. Sesja działa w tym samym
+Enter na koncie zamyka ekran menu i startuje `claude` z `CLAUDE_CONFIG_DIR` tego konta. Sesja działa w tym samym
 terminalu, a po jej zakończeniu `claudea` też się kończy (z kodem wyjścia `claude`).
 
 **Kolejność kont** ustawiasz w „Zmień kolejność kont”: Spacja chwyta konto, ↑/↓ je przesuwa,

@@ -55,8 +55,8 @@ node bin/claudea.js list
 .github/workflows/    ci.yml (testy), release.yml (publikacja w npm przez OIDC)
 bin/claudea.js        punkt wejścia (shebang) → src/cli.js main()
 src/cli.js            parsowanie argumentów (node:util parseArgs), dispatch poleceń, tekst pomocy
-src/interactive.js    menu (ładowane leniwie — tylko gdy TTY i brak polecenia): konta na górze, akcje pod separatorem
-src/ui.js             własne prompty na @clack/core: menuSelect (separatory, polska stopka), sortList (zmiana kolejności)
+src/interactive.js    aplikacja pełnoekranowa (ładowana leniwie — tylko gdy TTY): konta na górze, ustawienia pod nagłówkiem, komunikaty akcji nad kolejnym menu
+src/ui.js             alternatywny ekran terminala (openScreen/closeScreen) i własne prompty na @clack/core: menuSelect (sekcje, polska stopka), sortList (zmiana kolejności)
 src/accounts.js       rejestr kont: walidacja nazw, create/remove/rename/reorder/import, kandydaci do importu
 src/claude.js         uruchamianie `claude` (spawn, stdio: inherit), `claude auth status|login|logout`
 src/shell.js          opcjonalny alias claudea → npx claudea w pliku startowym powłoki (zsh, bash, fish)
@@ -109,8 +109,14 @@ Tylko testy: `FAKE_CLAUDE_LOG`, `FAKE_CLAUDE_EXIT`.
 - Zależności runtime: `@clack/prompts` i `@clack/core` (wersja core musi być tą samą, którą przypina prompts —
   inaczej npm zainstaluje dwie kopie z osobnymi `settings`). Ładuj je **leniwie** (`interactive.js`/`ui.js` przez
   `await import(...)`) — polecenia nieinteraktywne (`list`, `run`…) mają startować szybko i działać bez TTY.
-- Wybory w menu rób przez `menuSelect()` z `ui.js` (polska stopka, separatory `{ separator: true }`), nie `p.select`
-  (ma angielską stopkę). `p.text`/`p.confirm` (przez `yesNo()`)/`p.multiselect` (z `showInstructions: false`) są OK.
+- Wybory w menu rób przez `menuSelect()` z `ui.js` (polska stopka, sekcje `{ separator: true, label? }`, pola pozycji
+  `strong` — konto, `secondary` — ustawienie, `hint`, `enterLabel`), nie `p.select` (ma angielską stopkę). `p.text`/`p.confirm` (przez `yesNo()`)/`p.multiselect`
+  (z `showInstructions: false`) są OK.
+- Tryb interaktywny działa na alternatywnym ekranie terminala i każda akcja startuje na czystym ekranie: wyniki zgłaszaj
+  przez `notify()` w `interactive.js` (pokaże je kolejne menu, a przy `only` — zwykły terminal po wyjściu), nie przez `p.log.*`,
+  bo zniknęłyby przy następnym czyszczeniu. Przed `claude` uruchamianym jako sesja zawsze `closeScreen()`
+  (`launch()`); `claude auth *` działa na ekranie aplikacji, a po błędzie `pauseAfterFailure()` pozwala przeczytać wyjście.
+- `promptOnScreen()` ustawia prywatne `_prevFrame` clacka, żeby przerysować prompt po zmianie rozmiaru okna — sprawdź to przy aktualizacji `@clack/core`.
 - Teksty UI, komunikaty błędów i komentarze **po polsku** (z poprawnymi znakami diakrytycznymi);
   identyfikatory, nazwy plików i poleceń po angielsku. Potwierdzenia: „Tak / Nie” (`yesNo()` w interactive.js).
 - Logika w `accounts.js`/`claude.js` nie wypisuje nic na ekran — zwraca dane albo rzuca `CliError(msg, { hint })`.
@@ -132,6 +138,7 @@ Tylko testy: `FAKE_CLAUDE_LOG`, `FAKE_CLAUDE_EXIT`.
   Testy `shell` podają `SHELL` przez `env`, bo sandbox go nie dziedziczy.
 - Tryb interaktywny nie ma testów automatycznych. Ręcznie: pseudo-terminal (np. Python `pty.fork()`);
   **koniecznie ustaw rozmiar okna** (`TIOCSWINSZ`), inaczej clack renderuje po jednym znaku w linii.
+  Ekran najłatwiej odczytać emulatorem `pyte` (w venv poza repo); sprawdzaj też zmianę rozmiaru i wyjście z ekranu (`\x1b[?1049l`).
 
 ## Checklista: nowe polecenie / zmiana zachowania
 
@@ -196,6 +203,10 @@ Paczka zawiera tylko `bin/`, `src/`, `README.md`, `LICENSE` (pole `files`) — s
   Publikacja tokenami zablokowana w ustawieniach pakietu.
 - 2026-10-30 — Na prośbę właściciela wraca wąska integracja z powłoką: przełączany alias `claudea` → `npx claudea`
   (menu, `claudea shell on|off`), domyślnie wyłączony. Aliasy per konto i `shell-init`/`env` nadal odrzucone.
+- 2026-10-31 — Na prośbę właściciela menu działa jak aplikacja: alternatywny ekran terminala (bez śladów w historii)
+  i czysty ekran dla każdej akcji. Wygląd clacka (ramki, kółka) zostaje — właściciel odrzucił wersję z odwróconymi kolorami
+  i bez ramek. Konta są odróżnione od ustawień: jasne, pogrubione konta z `○`, przygaszone ustawienia z `›` (kursor `❯`) pod nagłówkiem
+  „Ustawienia”, a opis Enter w stopce zależy od pozycji.
 
 ## Pomysły na później
 

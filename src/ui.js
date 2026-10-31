@@ -1,7 +1,9 @@
-import { styleText } from 'node:util';
+import { constants } from 'node:os';
+import { stripVTControlCharacters, styleText } from 'node:util';
 import { Prompt, SelectPrompt, settings, updateSettings, wrapTextWithPrefix } from '@clack/core';
 import {
   S_BAR,
+  S_BAR_START,
   S_RADIO_ACTIVE,
   S_RADIO_INACTIVE,
   formatInstructionFooter,
@@ -11,15 +13,97 @@ import {
 } from '@clack/prompts';
 
 // Własne prompty na bazie @clack/core: wygląd jak w @clack/prompts, ale z polskimi podpowiedziami,
-// separatorem sekcji w menu i listą do zmiany kolejności.
+// sekcjami w menu i listą do zmiany kolejności — oraz pełnoekranowy tryb aplikacji (alternatywny ekran terminala).
 
 export function usePolishMessages() {
   updateSettings({ messages: { cancel: 'Anulowano', error: 'Coś poszło nie tak' } });
 }
 
+// ── Ekran aplikacji ──
+
+const ENTER_SCREEN = '\x1b[?1049h';
+const LEAVE_SCREEN = '\x1b[?25h\x1b[?1049l';
+const CLEAR_SCREEN = '\x1b[H\x1b[2J';
+const FATAL_SIGNALS = ['SIGTERM', 'SIGHUP'];
+
+let screenOpen = false;
+/** Tekst nad bieżącym promptem: odtwarzany po zmianie rozmiaru okna, a menu odejmuje go od dostępnej wysokości. */
+let screenLines = [];
+
+// Zakończenie dopiero w następnym obiegu pętli: `runClaude()` musi zdążyć przekazać sygnał dziecku.
+const onFatalSignal = (signal) => {
+  closeScreen();
+  setImmediate(() => process.exit(128 + constants.signals[signal]));
+};
+
+/** Przełącza na alternatywny ekran: po wyjściu terminal wygląda jak przed uruchomieniem, bez śladów w historii. */
+export function openScreen() {
+  if (screenOpen) return;
+  screenOpen = true;
+  process.stdout.write(ENTER_SCREEN);
+  process.on('exit', closeScreen);
+  for (const signal of FATAL_SIGNALS) process.on(signal, onFatalSignal);
+}
+
+export function closeScreen() {
+  if (!screenOpen) return;
+  screenOpen = false;
+  screenLines = [];
+  process.stdout.write(LEAVE_SCREEN);
+  process.off('exit', closeScreen);
+  for (const signal of FATAL_SIGNALS) process.off(signal, onFatalSignal);
+}
+
+export function clearScreen() {
+  process.stdout.write(CLEAR_SCREEN);
+  screenLines = [];
+}
+
+function printScreen(text) {
+  process.stdout.write(`${text}\n`);
+  screenLines.push(text);
+}
+
+/** Tytuł ekranu: to samo co `p.intro`, ale pamiętane do odtworzenia po zmianie rozmiaru okna. */
+export function printTitle(text) {
+  printScreen(`${styleText('gray', S_BAR_START)}  ${text}`);
+}
+
+/** Komunikat nad promptem: to samo co `p.log.*`, ale pamiętane do odtworzenia po zmianie rozmiaru okna. */
+export function printNotice(mark, text) {
+  const [first, ...rest] = text.split('\n');
+  const bar = styleText('gray', S_BAR);
+  printScreen(bar);
+  printScreen(`${mark}  ${first}`);
+  for (const line of rest) printScreen(`${bar}  ${line}`);
+}
+
+/**
+ * Uruchamia prompt tak, by po zmianie rozmiaru okna rysował się od zera — terminal nie przeformatowuje alternatywnego
+ * ekranu, więc rysowanie różnicowe clacka zostawiałoby śmieci. Czyścimy przed jego `render` (stąd `prependListener`).
+ */
+async function promptOnScreen(prompt) {
+  const repaint = () => {
+    process.stdout.write(CLEAR_SCREEN + screenLines.map((line) => `${line}\n`).join(''));
+    prompt._prevFrame = '';
+  };
+  process.stdout.prependListener('resize', repaint);
+  try {
+    return await prompt.prompt();
+  } finally {
+    process.stdout.off('resize', repaint);
+  }
+}
+
+// ── Prompty ──
+
 const key = (k, text) => `${styleText('dim', k)} ${text}`;
-const selectHelp = (escLabel) => [key('↑/↓', 'wybór'), key('Enter:', 'zatwierdź'), key('Esc:', escLabel)];
+const selectHelp = (enterLabel, escLabel) => [key('↑/↓', 'wybór'), key('Enter:', enterLabel), key('Esc:', escLabel)];
 const SORT_HELP = [key('Spacja:', 'chwyć/upuść'), key('↑/↓', 'przesuń'), key('Enter:', 'zapisz'), key('Esc:', 'anuluj')];
+
+const S_SECONDARY = '›';
+const S_SECONDARY_ACTIVE = '❯';
+const SECTION_WIDTH = 32;
 
 function header(prompt, message) {
   const title = wrapTextWithPrefix(prompt.output, message, `${symbolBar(prompt.state)}  `, `${symbol(prompt.state)}  `);
@@ -29,28 +113,39 @@ function header(prompt, message) {
 const doneBar = () => (settings.withGuide ? `${styleText('gray', S_BAR)}  ` : '');
 const activeBar = () => (settings.withGuide ? `${styleText('cyan', S_BAR)}  ` : '');
 
+function sectionLine(label) {
+  if (!label) return '';
+  return `${styleText('dim', '──')} ${styleText('bold', label)} ${styleText('dim', '─'.repeat(Math.max(SECTION_WIDTH - label.length, 2)))}`;
+}
+
+/** `strong` — pozycja główna, jasna także bez kursora; `secondary` — ustawienie, z innym znacznikiem i przygaszone. */
 function optionLine(option, state) {
-  if (option.separator) return styleText('dim', '─'.repeat(24));
+  if (option.separator) return sectionLine(option.label);
   const label = option.label ?? String(option.value);
+  const plain = stripVTControlCharacters(label).trimEnd();
   switch (state) {
-    case 'active':
-      return `${styleText('green', S_RADIO_ACTIVE)} ${label}${option.hint ? ` ${styleText('dim', `(${option.hint})`)}` : ''}`;
+    case 'active': {
+      const mark = option.secondary ? styleText('cyan', S_SECONDARY_ACTIVE) : styleText('green', S_RADIO_ACTIVE);
+      return `${mark} ${label}${option.hint ? ` ${styleText('dim', `(${option.hint})`)}` : ''}`;
+    }
     case 'selected':
-      return styleText('dim', label);
+      return styleText('dim', plain);
     case 'cancelled':
-      return styleText(['strikethrough', 'dim'], label);
-    default:
-      return `${styleText('dim', S_RADIO_INACTIVE)} ${styleText('dim', label)}`;
+      return styleText(['strikethrough', 'dim'], plain);
+    default: {
+      const mark = styleText('dim', option.secondary ? S_SECONDARY : S_RADIO_INACTIVE);
+      return `${mark} ${option.strong ? label : styleText('dim', label)}`;
+    }
   }
 }
 
 /**
- * Lista wyboru jak `select` z @clack/prompts, ale z polską stopką i separatorami:
- * pozycja `{ separator: true }` rysuje linię i jest pomijana przez kursor.
+ * Lista wyboru jak `select` z @clack/prompts, ale z polską stopką i sekcjami: pozycja `{ separator: true, label? }`
+ * rysuje pusty wiersz albo nagłówek i jest pomijana przez kursor. `enterLabel` pozycji zmienia opis Enter w stopce.
  */
 export function menuSelect({ message, options, initialValue, maxItems, escLabel = 'wróć' }) {
   const prepared = options.map((o) => (o.separator ? { ...o, value: Symbol('separator'), disabled: true } : o));
-  return new SelectPrompt({
+  const prompt = new SelectPrompt({
     options: prepared,
     initialValue,
     render() {
@@ -61,19 +156,20 @@ export function menuSelect({ message, options, initialValue, maxItems, escLabel 
         return `${top}${doneBar()}${optionLine(current, 'cancelled')}${settings.withGuide ? `\n${styleText('gray', S_BAR)}` : ''}`;
       }
       const bar = activeBar();
-      const footer = formatInstructionFooter(selectHelp(escLabel), settings.withGuide);
+      const footer = formatInstructionFooter(selectHelp(current.enterLabel ?? 'zatwierdź', escLabel), settings.withGuide);
       const rows = limitOptions({
         output: this.output,
         cursor: this.cursor,
         options: this.options,
         maxItems,
         columnPadding: bar.length,
-        rowPadding: top.split('\n').length + footer.length + 1,
+        rowPadding: screenLines.length + top.split('\n').length + footer.length + 1,
         style: (option, isActive) => optionLine(option, isActive ? 'active' : 'inactive'),
       });
       return `${top}${bar}${rows.join(`\n${bar}`)}\n${footer.join('\n')}\n`;
     },
-  }).prompt();
+  });
+  return promptOnScreen(prompt);
 }
 
 /** Lista z możliwością przesuwania pozycji: Spacja chwyta/upuszcza, ↑/↓ przesuwa. Zwraca wartości w nowej kolejności. */
@@ -100,7 +196,7 @@ class SortPrompt extends Prompt {
 }
 
 export function sortList({ message, items }) {
-  return new SortPrompt({
+  const prompt = new SortPrompt({
     items,
     render() {
       const top = header(this, message);
@@ -120,5 +216,6 @@ export function sortList({ message, items }) {
       const footer = formatInstructionFooter(SORT_HELP, settings.withGuide);
       return `${top}${bar}${rows.join(`\n${bar}`)}\n${footer.join('\n')}\n`;
     },
-  }).prompt();
+  });
+  return promptOnScreen(prompt);
 }
