@@ -107,7 +107,9 @@ Tylko testy: `FAKE_CLAUDE_LOG`, `FAKE_CLAUDE_EXIT`.
 
 - ESM, Node ≥ 22.13 (`parseArgs` z `allowNegative`, `util.styleText`). Bez TypeScriptu i bez bundlera.
 - Zależności runtime: `@clack/prompts` i `@clack/core` (wersja core musi być tą samą, którą przypina prompts —
-  inaczej npm zainstaluje dwie kopie z osobnymi `settings`). Ładuj je **leniwie** (`interactive.js`/`ui.js` przez
+  inaczej npm zainstaluje dwie kopie z osobnymi `settings`). **Obie przypinaj dokładnie** (bez `^`/`~`): `npx` i instalacja
+  globalna ignorują nasz `package-lock.json`, a `ui.js` używa pomocników clacka (`formatInstructionFooter`, `_prevFrame`),
+  które zmieniają się w wersjach minor — pilnuje tego `test/deps.test.js`. Ładuj je **leniwie** (`interactive.js`/`ui.js` przez
   `await import(...)`) — polecenia nieinteraktywne (`list`, `run`…) mają startować szybko i działać bez TTY.
 - Wybory w menu rób przez `menuSelect()` z `ui.js` (polska stopka, sekcje `{ separator: true, label? }`, pola pozycji
   `strong` — konto, `secondary` — ustawienie, `hint`, `enterLabel`), nie `p.select` (ma angielską stopkę). `p.text`/`p.confirm` (przez `yesNo()`)/`p.multiselect`
@@ -207,6 +209,8 @@ Paczka zawiera tylko `bin/`, `src/`, `README.md`, `LICENSE` (pole `files`) — s
   i czysty ekran dla każdej akcji. Wygląd clacka (ramki, kółka) zostaje — właściciel odrzucił wersję z odwróconymi kolorami
   i bez ramek. Konta są odróżnione od ustawień: jasne, pogrubione konta z `○`, przygaszone ustawienia z `›` (kursor `❯`) pod nagłówkiem
   „Ustawienia”, a opis Enter w stopce zależy od pozycji.
+- 2026-11-13 — `npx claudea` padał (`o.join is not a function`), bo `^1.8.1` pobrał `@clack/prompts` 1.9.0
+  ze zmienioną sygnaturą `formatInstructionFooter` i nowszym core. Zależności clacka przypięte dokładnie + test.
 
 ## Pomysły na później
 
